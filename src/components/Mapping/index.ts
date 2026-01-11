@@ -1,0 +1,1 @@
+export { MappingConfig } from './MappingConfig';
