@@ -21,14 +21,14 @@ export class EntryMatcher {
 
   /**
    * 匹配两个 HAR 文件中的请求条目
-   * 匹配策略：Method + 规范化后的 URL
+   * 匹配策略：Method + Host + Path 相同，选择查询参数最相似的
    */
   match(webvpnEntries: HarEntry[], sourceEntries: HarEntry[]): MatchResult {
     const matched: MatchResult['matched'] = [];
     const unmatchedWebvpn: HarEntry[] = [];
     const usedSourceIndices = new Set<number>();
 
-    // 为源站 entries 建立索引 (method + path -> entries)
+    // 为源站 entries 建立索引 (method + host + path -> entries)
     const sourceIndex = this.buildIndex(sourceEntries);
 
     // 遍历 WebVPN entries，尝试匹配
@@ -38,23 +38,29 @@ export class EntryMatcher {
       const key = this.getMatchKey(method, normalizedUrl);
 
       const candidates = sourceIndex.get(key) || [];
-      let matchedSourceIndex = -1;
+      let bestMatch: { index: number; similarity: number } | null = null;
 
-      // 找到第一个未使用的匹配
+      // 在候选项中找到参数最相似且未使用的匹配
       for (const candidate of candidates) {
         if (!usedSourceIndices.has(candidate.index)) {
-          matchedSourceIndex = candidate.index;
-          break;
+          const similarity = this.calculateUrlSimilarity(
+            normalizedUrl,
+            candidate.entry.request.url
+          );
+
+          if (bestMatch === null || similarity > bestMatch.similarity) {
+            bestMatch = { index: candidate.index, similarity };
+          }
         }
       }
 
-      if (matchedSourceIndex !== -1) {
+      if (bestMatch !== null) {
         matched.push({
           webvpnEntry,
-          sourceEntry: sourceEntries[matchedSourceIndex],
+          sourceEntry: sourceEntries[bestMatch.index],
           normalizedUrl,
         });
-        usedSourceIndices.add(matchedSourceIndex);
+        usedSourceIndices.add(bestMatch.index);
       } else {
         unmatchedWebvpn.push(webvpnEntry);
       }
@@ -89,19 +95,57 @@ export class EntryMatcher {
   }
 
   /**
-   * 生成匹配键：method + url_path
-   * 忽略 query 参数的顺序
+   * 生成匹配键：method + hostname + pathname
+   * 不包括查询参数，只匹配基础路径
    */
   private getMatchKey(method: string, url: string): string {
     try {
       const parsed = new URL(url);
-      // 对 query 参数排序以忽略顺序差异
-      const params = new URLSearchParams(parsed.search);
-      const sortedParams = new URLSearchParams([...params.entries()].sort());
-      return `${method}|${parsed.hostname}${parsed.pathname}?${sortedParams.toString()}`;
+      // 只使用 method + hostname + pathname，不包含查询参数
+      return `${method}|${parsed.hostname}${parsed.pathname}`;
     } catch {
       // 如果 URL 解析失败，直接使用原始值
       return `${method}|${url}`;
+    }
+  }
+
+  /**
+   * 计算两个 URL 的查询参数相似度
+   * 返回 0-1 之间的相似度分数，1 表示完全相同
+   */
+  private calculateUrlSimilarity(url1: string, url2: string): number {
+    try {
+      const parsed1 = new URL(url1);
+      const parsed2 = new URL(url2);
+
+      // 获取查询参数
+      const params1 = new URLSearchParams(parsed1.search);
+      const params2 = new URLSearchParams(parsed2.search);
+
+      // 如果两个 URL 都没有参数，视为完全匹配
+      if (params1.size === 0 && params2.size === 0) {
+        return 1.0;
+      }
+
+      // 如果只有一个有参数，相似度较低
+      if (params1.size === 0 || params2.size === 0) {
+        return 0.1;
+      }
+
+      // 计算共同参数数量（key 和 value 都相同）
+      let commonParams = 0;
+      for (const [key, value] of params1.entries()) {
+        if (params2.get(key) === value) {
+          commonParams++;
+        }
+      }
+
+      // 相似度 = 共同参数数 / 参数总数的平均值
+      const totalParams = (params1.size + params2.size) / 2;
+      return commonParams / totalParams;
+    } catch {
+      // URL 解析失败，使用简单的字符串比较
+      return url1 === url2 ? 1.0 : 0.0;
     }
   }
 }
