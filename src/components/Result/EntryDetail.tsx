@@ -1,16 +1,12 @@
 import React, { useState } from 'react';
-import { Card, Tag, Typography, Empty, Button, Space, Divider } from 'antd';
+import { Card, Tag, Empty, Button, Space } from 'antd';
 import {
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   ExpandOutlined,
   ShrinkOutlined,
 } from '@ant-design/icons';
 import type { EntryCompareResult } from '../../types';
 import { HeaderTable } from '../Diff/HeaderTable';
 import { BodyDiffView } from '../Diff/BodyDiff';
-
-const { Text } = Typography;
 
 interface EntryDetailProps {
   entry: EntryCompareResult | null;
@@ -34,6 +30,38 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
     );
   }
 
+  // 构建基本信息行（Method 和 URL）
+  const basicInfoRows = [
+    {
+      key: 'method',
+      name: '请求方法',
+      webvpnValue: entry.method,
+      sourceValue: entry.method,
+    },
+    {
+      key: 'url-webvpn',
+      name: 'WebVPN URL',
+      webvpnValue: entry.originalWebvpnUrl || entry.url,
+      sourceValue: undefined,
+    },
+    {
+      key: 'url-source',
+      name: '源站 URL',
+      webvpnValue: undefined,
+      sourceValue: entry.originalSourceUrl || entry.url,
+    },
+  ];
+
+  const statusCodeRows = [
+    {
+      key: 'status',
+      name: '响应状态码',
+      webvpnValue: entry.response.statusCode.webvpn ? `${entry.response.statusCode.webvpn}` : undefined,
+      sourceValue: entry.response.statusCode.source ? `${entry.response.statusCode.source}` : undefined,
+      status: entry.response.statusCode.isIdentical ? 'matched' as const : 'different' as const,
+    },
+  ];
+
   return (
     <Card
       className="h-full overflow-auto"
@@ -49,35 +77,6 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
         </Button>
       }
     >
-      {/* 第一行：GET webvpn网址 */}
-      <div className="mb-2">
-        <Space>
-          <Tag color="blue">{entry.method}</Tag>
-          <Text strong>WebVPN:</Text>
-        </Space>
-        <div className="mt-1 ml-2">
-          <Text copyable className="text-xs break-all text-gray-600">
-            {entry.originalWebvpnUrl || entry.url}
-          </Text>
-        </div>
-      </div>
-
-      {/* 第二行：GET 源站网址 */}
-      <div className="mb-4">
-        <Space>
-          <Tag color="green">{entry.method}</Tag>
-          <Text strong>源站:</Text>
-        </Space>
-        <div className="mt-1 ml-2">
-          <Text copyable className="text-xs break-all text-gray-600">
-            {entry.originalSourceUrl || entry.url}
-          </Text>
-        </div>
-      </div>
-
-      <Divider className="my-4" />
-
-      {/* 只在 webvpn_only 或 source_only 时显示提示 */}
       {entry.status === 'webvpn_only' || entry.status === 'source_only' ? (
         <div className="text-center py-8">
           <Tag
@@ -89,15 +88,16 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
         </div>
       ) : (
         <Space direction="vertical" size="middle" className="w-full">
-          {/* 第三行：req headers 对比表格 */}
+          {/* 请求信息（含 Method 和 URL） */}
           <HeaderTable
             key={`req-header-${collapseKey}`}
             diff={entry.request.headerDiff}
-            title="请求 Headers"
+            title="请求信息"
             defaultCollapsed={collapsed}
+            extraRows={basicInfoRows}
           />
 
-          {/* 第四行：req body 对比 */}
+          {/* 请求 Body */}
           <div>
             <BodyDiffView
               key={`req-body-${collapseKey}`}
@@ -106,35 +106,16 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
             />
           </div>
 
-          <Divider className="my-2" />
-
-          {/* 响应状态码 */}
-          <div className="p-3 bg-gray-50 rounded">
-            <Text strong>响应状态码: </Text>
-            {entry.response.statusCode.isIdentical ? (
-              <Tag color="success" icon={<CheckCircleOutlined />}>
-                {entry.response.statusCode.webvpn} (一致)
-              </Tag>
-            ) : (
-              <>
-                <Tag color="blue">WebVPN: {entry.response.statusCode.webvpn ?? 'N/A'}</Tag>
-                <Tag color="orange">源站: {entry.response.statusCode.source ?? 'N/A'}</Tag>
-                <Tag color="error" icon={<CloseCircleOutlined />}>
-                  不一致
-                </Tag>
-              </>
-            )}
-          </div>
-
-          {/* 第五行：resp headers 对比表格 */}
+          {/* 响应信息（含状态码） */}
           <HeaderTable
             key={`resp-header-${collapseKey}`}
             diff={entry.response.headerDiff}
-            title="响应 Headers"
+            title="响应信息"
             defaultCollapsed={collapsed}
+            extraRows={statusCodeRows}
           />
 
-          {/* 第六行：resp body 对比 */}
+          {/* 响应 Body */}
           <div>
             <BodyDiffView
               key={`resp-body-${collapseKey}`}

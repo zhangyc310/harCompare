@@ -10,10 +10,19 @@ import type { HeaderDiff } from '../../types';
 
 const { Text } = Typography;
 
+export interface ExtraRow {
+  key: string;
+  name: string;
+  webvpnValue: string | undefined;
+  sourceValue: string | undefined;
+  status?: 'matched' | 'different' | 'missing' | 'extra';
+}
+
 interface HeaderTableProps {
   diff: HeaderDiff;
   title: string;
   defaultCollapsed?: boolean;
+  extraRows?: ExtraRow[]; // 额外的行（如 Method、URL）
 }
 
 interface HeaderRow {
@@ -23,18 +32,44 @@ interface HeaderRow {
   sourceValue: string | undefined;
   status: 'matched' | 'different' | 'missing' | 'extra';
   isIdenticalAfterNormalization?: boolean;
+  isExtraRow?: boolean; // 标记是否为额外行
 }
 
 export const HeaderTable: React.FC<HeaderTableProps> = ({
   diff,
   title,
-  defaultCollapsed = false
+  defaultCollapsed = false,
+  extraRows = [],
 }) => {
   const hasDifferences =
     diff.different.length > 0 || diff.missing.length > 0 || diff.extra.length > 0;
 
   // 构建表格数据
   const tableData: HeaderRow[] = [];
+
+  // 0. 添加额外行（Method、URL 等）
+  extraRows.forEach((row) => {
+    // 判断额外行的状态
+    let status: 'matched' | 'different' | 'missing' | 'extra' = 'matched';
+    if (row.status) {
+      status = row.status;
+    } else if (row.webvpnValue === undefined && row.sourceValue !== undefined) {
+      status = 'missing';
+    } else if (row.webvpnValue !== undefined && row.sourceValue === undefined) {
+      status = 'extra';
+    } else if (row.webvpnValue !== row.sourceValue) {
+      status = 'different';
+    }
+
+    tableData.push({
+      key: row.key,
+      name: row.name,
+      webvpnValue: row.webvpnValue,
+      sourceValue: row.sourceValue,
+      status,
+      isExtraRow: true,
+    });
+  });
 
   // 1. 有差异的 headers
   diff.different.forEach((item) => {
@@ -104,16 +139,22 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
 
   const columns = [
     {
-      title: 'Header 名称',
+      title: '名称',
       dataIndex: 'name',
       width: 200,
       render: (name: string, record: HeaderRow) => (
         <div className="flex items-center gap-2">
-          {record.status === 'matched' && <CheckCircleOutlined className="text-green-500" />}
-          {record.status === 'different' && <WarningOutlined className="text-orange-500" />}
-          {record.status === 'missing' && <MinusCircleOutlined className="text-red-500" />}
-          {record.status === 'extra' && <PlusCircleOutlined className="text-blue-500" />}
-          <Text code>{name}</Text>
+          {!record.isExtraRow && (
+            <>
+              {record.status === 'matched' && <CheckCircleOutlined className="text-green-500" />}
+              {record.status === 'different' && <WarningOutlined className="text-orange-500" />}
+              {record.status === 'missing' && <MinusCircleOutlined className="text-red-500" />}
+              {record.status === 'extra' && <PlusCircleOutlined className="text-blue-500" />}
+            </>
+          )}
+          <Text code={!record.isExtraRow} strong={record.isExtraRow}>
+            {name}
+          </Text>
         </div>
       ),
     },
