@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Layout, Button, Typography, Divider, message, Drawer, FloatButton } from 'antd';
+import { Layout, Button, Typography, message, Drawer, FloatButton } from 'antd';
 import { SwapOutlined, GithubOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import type { HarFile, MappingConfig, CompareResult, EntryCompareResult } from './types';
 import { DEFAULT_MAPPING_CONFIG } from './types';
@@ -142,7 +142,7 @@ const App: React.FC = () => {
 
         {/* 上传区域 */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
-          <div className="flex">
+          <div className="flex items-center gap-4">
             <HarUploader
               title="WebVPN HAR"
               description="上传通过 WebVPN 访问时录制的 HAR 文件"
@@ -150,7 +150,22 @@ const App: React.FC = () => {
               harFile={webvpnHar}
               filename={webvpnFilename}
             />
-            <Divider type="vertical" className="h-auto mx-4" />
+
+            {/* 对比按钮 */}
+            <div className="flex flex-col items-center justify-center">
+              <Button
+                type="primary"
+                size="large"
+                icon={<SwapOutlined />}
+                onClick={handleCompare}
+                loading={isComparing}
+                disabled={!webvpnHar || !sourceHar}
+                style={{ height: '64px', fontSize: '16px' }}
+              >
+                开始对比
+              </Button>
+            </div>
+
             <HarUploader
               title="源站 HAR"
               description="上传直接访问源站时录制的 HAR 文件"
@@ -158,20 +173,6 @@ const App: React.FC = () => {
               harFile={sourceHar}
               filename={sourceFilename}
             />
-          </div>
-
-          {/* 对比按钮 */}
-          <div className="text-center mt-4">
-            <Button
-              type="primary"
-              size="large"
-              icon={<SwapOutlined />}
-              onClick={handleCompare}
-              loading={isComparing}
-              disabled={!webvpnHar || !sourceHar}
-            >
-              开始对比
-            </Button>
           </div>
         </div>
 

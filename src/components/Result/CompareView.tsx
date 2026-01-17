@@ -1,14 +1,13 @@
 import React, { useState } from 'react';
-import { Card, Collapse, Tag, Typography, Button, Space, Divider, Table } from 'antd';
+import { Card, Collapse, Tag, Typography, Button, Space } from 'antd';
 import {
   CheckCircleOutlined,
   WarningOutlined,
-  CloseCircleOutlined,
   ExpandOutlined,
   ShrinkOutlined,
   QuestionCircleOutlined,
 } from '@ant-design/icons';
-import type { EntryCompareResult, HarHeader } from '../../types';
+import type { EntryCompareResult, HeaderDiff } from '../../types';
 import { HeaderTable } from '../Diff/HeaderTable';
 import { BodyDiffView } from '../Diff/BodyDiff';
 
@@ -103,75 +102,104 @@ interface EntryDetailContentProps {
 }
 
 const EntryDetailContent: React.FC<EntryDetailContentProps> = ({ entry, collapseKey, collapsed }) => {
-  // 对于 webvpn_only 或 source_only，显示完整的请求/响应信息
+  // 对于 webvpn_only 或 source_only，也使用3列表格，缺失侧显示 undefined
   if (entry.status === 'webvpn_only' || entry.status === 'source_only') {
-    const harEntry = entry.status === 'webvpn_only' ? entry.webvpnEntry : entry.sourceEntry;
+    const isWebvpnOnly = entry.status === 'webvpn_only';
+    const harEntry = isWebvpnOnly ? entry.webvpnEntry : entry.sourceEntry;
 
     if (!harEntry) {
       return <Text type="secondary">无详细信息</Text>;
     }
 
+    // 构建单边的 HeaderDiff（将所有 headers 作为 extra 或 missing）
+    const requestHeaderDiff: HeaderDiff = {
+      matched: [],
+      different: [],
+      missing: isWebvpnOnly ? [] : harEntry.request.headers,
+      extra: isWebvpnOnly ? harEntry.request.headers : [],
+    };
+
+    const responseHeaderDiff: HeaderDiff = {
+      matched: [],
+      different: [],
+      missing: isWebvpnOnly ? [] : harEntry.response.headers,
+      extra: isWebvpnOnly ? harEntry.response.headers : [],
+    };
+
+    // 构建基本信息行
+    const basicInfoRows = [
+      {
+        key: 'method',
+        name: '请求方法',
+        webvpnValue: isWebvpnOnly ? entry.method : undefined,
+        sourceValue: isWebvpnOnly ? undefined : entry.method,
+      },
+      {
+        key: 'url',
+        name: '请求 URL',
+        webvpnValue: isWebvpnOnly ? harEntry.request.url : undefined,
+        sourceValue: isWebvpnOnly ? undefined : harEntry.request.url,
+      },
+    ];
+
+    const statusCodeRows = [
+      {
+        key: 'status',
+        name: '响应状态码',
+        webvpnValue: isWebvpnOnly ? `${harEntry.response.status} ${harEntry.response.statusText}` : undefined,
+        sourceValue: isWebvpnOnly ? undefined : `${harEntry.response.status} ${harEntry.response.statusText}`,
+      },
+    ];
+
     return (
       <Space direction="vertical" size="middle" className="w-full">
-        {/* URL 信息 */}
-        <div>
-          <Space>
-            <Tag color={entry.status === 'webvpn_only' ? 'blue' : 'green'}>{entry.method}</Tag>
-            <Text strong>{entry.status === 'webvpn_only' ? 'WebVPN' : '源站'}:</Text>
-          </Space>
-          <div className="mt-1 ml-2">
-            <Text copyable className="text-xs break-all text-gray-600">
-              {harEntry.request.url}
-            </Text>
-          </div>
-        </div>
-
-        <Divider className="my-2" />
-
-        {/* 请求 Headers */}
-        <SingleSideHeaderTable
-          headers={harEntry.request.headers}
-          title="请求 Headers"
+        {/* 请求 Headers（含 Method 和 URL） */}
+        <HeaderTable
+          key={`req-header-${collapseKey}`}
+          diff={requestHeaderDiff}
+          title="请求信息"
           defaultCollapsed={collapsed}
-          keyPrefix={`${entry.id}-req-header-${collapseKey}`}
+          extraRows={basicInfoRows}
         />
 
         {/* 请求 Body */}
         {harEntry.request.postData?.text && (
-          <SingleSideBodyView
-            body={harEntry.request.postData.text}
-            mimeType={harEntry.request.postData.mimeType}
-            title="请求 Body"
+          <BodyDiffView
+            key={`req-body-${collapseKey}`}
+            diff={{
+              status: isWebvpnOnly ? 'webvpn_only' : 'source_only',
+              mimeType: harEntry.request.postData.mimeType,
+              webvpnSize: isWebvpnOnly ? harEntry.request.postData.text.length : 0,
+              sourceSize: isWebvpnOnly ? 0 : harEntry.request.postData.text.length,
+              webvpnText: isWebvpnOnly ? harEntry.request.postData.text : undefined,
+              sourceText: isWebvpnOnly ? undefined : harEntry.request.postData.text,
+            }}
             defaultCollapsed={collapsed}
-            keyPrefix={`${entry.id}-req-body-${collapseKey}`}
           />
         )}
 
-        <Divider className="my-2" />
-
-        {/* 响应状态码 */}
-        <div className="p-3 bg-gray-50 rounded">
-          <Text strong>响应状态码: </Text>
-          <Tag color="blue">{harEntry.response.status}</Tag>
-          <Text type="secondary">{harEntry.response.statusText}</Text>
-        </div>
-
-        {/* 响应 Headers */}
-        <SingleSideHeaderTable
-          headers={harEntry.response.headers}
-          title="响应 Headers"
+        {/* 响应 Headers（含状态码） */}
+        <HeaderTable
+          key={`resp-header-${collapseKey}`}
+          diff={responseHeaderDiff}
+          title="响应信息"
           defaultCollapsed={collapsed}
-          keyPrefix={`${entry.id}-resp-header-${collapseKey}`}
+          extraRows={statusCodeRows}
         />
 
         {/* 响应 Body */}
         {harEntry.response.content.text && (
-          <SingleSideBodyView
-            body={harEntry.response.content.text}
-            mimeType={harEntry.response.content.mimeType}
-            title="响应 Body"
+          <BodyDiffView
+            key={`resp-body-${collapseKey}`}
+            diff={{
+              status: isWebvpnOnly ? 'webvpn_only' : 'source_only',
+              mimeType: harEntry.response.content.mimeType,
+              webvpnSize: isWebvpnOnly ? harEntry.response.content.text.length : 0,
+              sourceSize: isWebvpnOnly ? 0 : harEntry.response.content.text.length,
+              webvpnText: isWebvpnOnly ? harEntry.response.content.text : undefined,
+              sourceText: isWebvpnOnly ? undefined : harEntry.response.content.text,
+            }}
             defaultCollapsed={collapsed}
-            keyPrefix={`${entry.id}-resp-body-${collapseKey}`}
           />
         )}
       </Space>
@@ -179,42 +207,46 @@ const EntryDetailContent: React.FC<EntryDetailContentProps> = ({ entry, collapse
   }
 
   // 对于正常的对比结果，显示对比视图
+  const basicInfoRows = [
+    {
+      key: 'method',
+      name: '请求方法',
+      webvpnValue: entry.method,
+      sourceValue: entry.method,
+    },
+    {
+      key: 'url-webvpn',
+      name: 'WebVPN URL',
+      webvpnValue: entry.originalWebvpnUrl || entry.url,
+      sourceValue: undefined,
+    },
+    {
+      key: 'url-source',
+      name: '源站 URL',
+      webvpnValue: undefined,
+      sourceValue: entry.originalSourceUrl || entry.url,
+    },
+  ];
+
+  const statusCodeRows = [
+    {
+      key: 'status',
+      name: '响应状态码',
+      webvpnValue: entry.response.statusCode.webvpn ? `${entry.response.statusCode.webvpn}` : undefined,
+      sourceValue: entry.response.statusCode.source ? `${entry.response.statusCode.source}` : undefined,
+      status: entry.response.statusCode.isIdentical ? 'matched' as const : 'different' as const,
+    },
+  ];
+
   return (
     <Space direction="vertical" size="middle" className="w-full">
-      {/* WebVPN URL */}
-      <div className="mb-2">
-        <Space>
-          <Tag color="blue">{entry.method}</Tag>
-          <Text strong>WebVPN:</Text>
-        </Space>
-        <div className="mt-1 ml-2">
-          <Text copyable className="text-xs break-all text-gray-600">
-            {entry.originalWebvpnUrl || entry.url}
-          </Text>
-        </div>
-      </div>
-
-      {/* 源站 URL */}
-      <div className="mb-4">
-        <Space>
-          <Tag color="green">{entry.method}</Tag>
-          <Text strong>源站:</Text>
-        </Space>
-        <div className="mt-1 ml-2">
-          <Text copyable className="text-xs break-all text-gray-600">
-            {entry.originalSourceUrl || entry.url}
-          </Text>
-        </div>
-      </div>
-
-      <Divider className="my-4" />
-
-      {/* 请求 Headers */}
+      {/* 请求 Headers（含 Method 和 URL） */}
       <HeaderTable
         key={`req-header-${collapseKey}`}
         diff={entry.request.headerDiff}
-        title="请求 Headers"
+        title="请求信息"
         defaultCollapsed={collapsed}
+        extraRows={basicInfoRows}
       />
 
       {/* 请求 Body */}
@@ -226,32 +258,13 @@ const EntryDetailContent: React.FC<EntryDetailContentProps> = ({ entry, collapse
         />
       </div>
 
-      <Divider className="my-2" />
-
-      {/* 响应状态码 */}
-      <div className="p-3 bg-gray-50 rounded">
-        <Text strong>响应状态码: </Text>
-        {entry.response.statusCode.isIdentical ? (
-          <Tag color="success" icon={<CheckCircleOutlined />}>
-            {entry.response.statusCode.webvpn} (一致)
-          </Tag>
-        ) : (
-          <>
-            <Tag color="blue">WebVPN: {entry.response.statusCode.webvpn ?? 'N/A'}</Tag>
-            <Tag color="orange">源站: {entry.response.statusCode.source ?? 'N/A'}</Tag>
-            <Tag color="error" icon={<CloseCircleOutlined />}>
-              不一致
-            </Tag>
-          </>
-        )}
-      </div>
-
-      {/* 响应 Headers */}
+      {/* 响应 Headers（含状态码） */}
       <HeaderTable
         key={`resp-header-${collapseKey}`}
         diff={entry.response.headerDiff}
-        title="响应 Headers"
+        title="响应信息"
         defaultCollapsed={collapsed}
+        extraRows={statusCodeRows}
       />
 
       {/* 响应 Body */}
@@ -263,118 +276,5 @@ const EntryDetailContent: React.FC<EntryDetailContentProps> = ({ entry, collapse
         />
       </div>
     </Space>
-  );
-};
-
-// 单侧 Headers 表格（用于 webvpn_only/source_only）
-interface SingleSideHeaderTableProps {
-  headers: HarHeader[];
-  title: string;
-  defaultCollapsed: boolean;
-  keyPrefix: string;
-}
-
-const SingleSideHeaderTable: React.FC<SingleSideHeaderTableProps> = ({
-  headers,
-  title,
-  defaultCollapsed,
-  keyPrefix,
-}) => {
-  return (
-    <Collapse
-      size="small"
-      items={[
-        {
-          key: keyPrefix,
-          label: (
-            <span>
-              <CheckCircleOutlined className="text-blue-500 mr-2" />
-              {title}
-              <Tag color="blue" className="ml-2">
-                {headers.length} 个
-              </Tag>
-            </span>
-          ),
-          children: (
-            <Table
-              dataSource={headers}
-              rowKey="name"
-              size="small"
-              pagination={false}
-              columns={[
-                {
-                  title: 'Header 名称',
-                  dataIndex: 'name',
-                  width: 200,
-                  render: (name) => <Text code>{name}</Text>,
-                },
-                {
-                  title: '值',
-                  dataIndex: 'value',
-                  render: (value) => <Text className="break-all text-xs">{value}</Text>,
-                },
-              ]}
-            />
-          ),
-        },
-      ]}
-      defaultActiveKey={defaultCollapsed ? [] : [keyPrefix]}
-    />
-  );
-};
-
-// 单侧 Body 视图（用于 webvpn_only/source_only）
-interface SingleSideBodyViewProps {
-  body: string;
-  mimeType?: string;
-  title: string;
-  defaultCollapsed: boolean;
-  keyPrefix: string;
-}
-
-const SingleSideBodyView: React.FC<SingleSideBodyViewProps> = ({
-  body,
-  mimeType,
-  title,
-  defaultCollapsed,
-  keyPrefix,
-}) => {
-  // 格式化 JSON
-  const formatJson = (text: string): string => {
-    try {
-      return JSON.stringify(JSON.parse(text), null, 2);
-    } catch {
-      return text;
-    }
-  };
-
-  const isJson = mimeType?.includes('json') || false;
-  const displayBody = isJson ? formatJson(body) : body;
-  const bodySize = body.length;
-
-  return (
-    <Collapse
-      size="small"
-      items={[
-        {
-          key: keyPrefix,
-          label: (
-            <span>
-              <CheckCircleOutlined className="text-blue-500 mr-2" />
-              {title}
-              <Tag color="blue" className="ml-2">
-                {bodySize} bytes{mimeType && ` | ${mimeType}`}
-              </Tag>
-            </span>
-          ),
-          children: (
-            <pre className="bg-gray-50 p-3 rounded text-xs overflow-auto max-h-96">
-              {displayBody}
-            </pre>
-          ),
-        },
-      ]}
-      defaultActiveKey={defaultCollapsed ? [] : [keyPrefix]}
-    />
   );
 };

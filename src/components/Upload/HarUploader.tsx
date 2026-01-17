@@ -57,25 +57,25 @@ export const HarUploader: React.FC<HarUploaderProps> = ({
   };
 
   return (
-    <div className="flex-1 p-4">
-      <Title level={5} className="mb-3 text-center">
+    <div className="flex-1">
+      <Title level={5} className="mb-2 text-center">
         {title}
       </Title>
       {description && (
-        <Text type="secondary" className="block text-center mb-3">
+        <Text type="secondary" className="block text-center mb-2 text-xs">
           {description}
         </Text>
       )}
 
       {harFile ? (
-        <div className="border-2 border-solid border-green-400 rounded-lg p-6 bg-green-50 text-center">
+        <div className="border-2 border-solid border-green-400 rounded-lg p-3 bg-green-50 text-center">
           <Space direction="vertical" size="small">
-            <CheckCircleOutlined className="text-4xl text-green-500" />
-            <Text strong>{filename}</Text>
-            <Text type="secondary">{harFile.log.entries.length} 个请求</Text>
-            <Dragger {...uploadProps} className="mt-2 bg-white">
-              <Text type="secondary" className="text-sm">
-                点击或拖拽替换文件
+            <CheckCircleOutlined className="text-2xl text-green-500" />
+            <Text strong className="text-sm">{filename}</Text>
+            <Text type="secondary" className="text-xs">{harFile.log.entries.length} 个请求</Text>
+            <Dragger {...uploadProps} className="mt-1 bg-white" style={{ padding: '8px' }}>
+              <Text type="secondary" className="text-xs">
+                点击或拖拽替换
               </Text>
             </Dragger>
           </Space>
@@ -84,13 +84,14 @@ export const HarUploader: React.FC<HarUploaderProps> = ({
         <Dragger
           {...uploadProps}
           className="upload-dragger"
+          style={{ padding: '16px' }}
         >
-          <p className="ant-upload-drag-icon">
-            <InboxOutlined className="text-5xl text-blue-400" />
+          <p className="ant-upload-drag-icon" style={{ marginBottom: '8px' }}>
+            <InboxOutlined className="text-3xl text-blue-400" />
           </p>
-          <p className="ant-upload-text">点击或拖拽 HAR 文件到此区域</p>
-          <p className="ant-upload-hint">
-            <FileTextOutlined /> 支持 .har 格式文件
+          <p className="ant-upload-text text-sm" style={{ marginBottom: '4px' }}>点击或拖拽 HAR 文件</p>
+          <p className="ant-upload-hint text-xs">
+            <FileTextOutlined /> 支持 .har 格式
           </p>
         </Dragger>
       )}
