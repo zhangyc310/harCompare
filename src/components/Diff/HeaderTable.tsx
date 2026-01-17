@@ -240,7 +240,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
           ),
         },
       ]}
-      defaultActiveKey={defaultCollapsed ? [] : hasDifferences ? ['headers'] : []}
+      defaultActiveKey={defaultCollapsed ? [] : ['headers']}
     />
   );
 };

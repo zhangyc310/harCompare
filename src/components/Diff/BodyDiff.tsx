@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Typography, Tag, Empty, Alert, Tabs, Segmented, Collapse } from 'antd';
+import { Typography, Tag, Alert, Tabs, Segmented, Collapse } from 'antd';
 import {
   CheckCircleOutlined,
   WarningOutlined,
@@ -45,7 +45,11 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
 
   // 状态展示
   if (diff.status === 'both_empty') {
-    return <Empty description="无 Body 内容" />;
+    return (
+      <div className="text-center py-1 text-gray-400 text-sm border border-gray-200 rounded bg-gray-50">
+        无 Body 内容
+      </div>
+    );
   }
 
   if (diff.status === 'identical') {
