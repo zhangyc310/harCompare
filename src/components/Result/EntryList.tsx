@@ -147,7 +147,7 @@ export const EntryList: React.FC<EntryListProps> = ({ entries, selectedId, onSel
       </div>
 
       {/* 列表 */}
-      <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 500px)' }}>
+      <div className="overflow-y-auto">
         {filteredEntries.length === 0 ? (
           <Empty description="没有匹配的请求" />
         ) : (

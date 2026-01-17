@@ -1,15 +1,19 @@
-import React, { useState, useCallback } from 'react';
-import { Layout, Button, Typography, Divider, Row, Col, message } from 'antd';
-import { SwapOutlined, GithubOutlined } from '@ant-design/icons';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Layout, Button, Typography, Divider, message, Drawer, FloatButton } from 'antd';
+import { SwapOutlined, GithubOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import type { HarFile, MappingConfig, CompareResult, EntryCompareResult } from './types';
 import { DEFAULT_MAPPING_CONFIG } from './types';
 import { Comparator } from './core';
 import { HarUploader } from './components/Upload';
 import { MappingConfig as MappingConfigPanel } from './components/Mapping';
-import { Summary, EntryList, EntryDetail } from './components/Result';
+import { Summary, EntryList } from './components/Result';
+import { CompareView } from './components/Result/CompareView';
 
 const { Header, Content } = Layout;
 const { Title, Text } = Typography;
+
+// localStorage key
+const STORAGE_KEY_MAPPING = 'har-compare-mapping-config';
 
 const App: React.FC = () => {
   // 上传的 HAR 文件
@@ -18,8 +22,18 @@ const App: React.FC = () => {
   const [sourceHar, setSourceHar] = useState<HarFile | null>(null);
   const [sourceFilename, setSourceFilename] = useState<string | null>(null);
 
-  // 映射配置
-  const [mappingConfig, setMappingConfig] = useState<MappingConfig>(DEFAULT_MAPPING_CONFIG);
+  // 映射配置 - 从 localStorage 加载
+  const [mappingConfig, setMappingConfig] = useState<MappingConfig>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_MAPPING);
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (err) {
+      console.error('Failed to load mapping config from localStorage:', err);
+    }
+    return DEFAULT_MAPPING_CONFIG;
+  });
 
   // 对比结果
   const [compareResult, setCompareResult] = useState<CompareResult | null>(null);
@@ -27,6 +41,18 @@ const App: React.FC = () => {
 
   // 是否正在对比
   const [isComparing, setIsComparing] = useState(false);
+
+  // 抽屉状态
+  const [drawerVisible, setDrawerVisible] = useState(false);
+
+  // 保存配置到 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY_MAPPING, JSON.stringify(mappingConfig));
+    } catch (err) {
+      console.error('Failed to save mapping config to localStorage:', err);
+    }
+  }, [mappingConfig]);
 
   // 处理 WebVPN HAR 上传
   const handleWebvpnUpload = useCallback((har: HarFile, filename: string) => {
@@ -87,6 +113,7 @@ const App: React.FC = () => {
   // 选择 entry
   const handleSelectEntry = useCallback((entry: EntryCompareResult) => {
     setSelectedEntry(entry);
+    setDrawerVisible(false); // 选择后关闭抽屉
   }, []);
 
   return (
@@ -153,20 +180,37 @@ const App: React.FC = () => {
           <>
             <Summary summary={compareResult.summary} />
 
-            <Row gutter={16}>
-              <Col span={10}>
-                <EntryList
-                  entries={compareResult.entries}
-                  selectedId={selectedEntry?.id || null}
-                  onSelect={handleSelectEntry}
-                />
-              </Col>
-              <Col span={14}>
-                <EntryDetail entry={selectedEntry} />
-              </Col>
-            </Row>
+            {/* 对比视图 - 所有请求折叠列表 */}
+            <CompareView entries={compareResult.entries} />
           </>
         )}
+
+        {/* 浮动按钮 - 打开请求列表 */}
+        {compareResult && (
+          <FloatButton
+            icon={<UnorderedListOutlined />}
+            type="primary"
+            tooltip="请求列表"
+            onClick={() => setDrawerVisible(true)}
+          />
+        )}
+
+        {/* 请求列表抽屉 */}
+        <Drawer
+          title="请求列表"
+          placement="left"
+          width={400}
+          open={drawerVisible}
+          onClose={() => setDrawerVisible(false)}
+        >
+          {compareResult && (
+            <EntryList
+              entries={compareResult.entries}
+              selectedId={selectedEntry?.id || null}
+              onSelect={handleSelectEntry}
+            />
+          )}
+        </Drawer>
       </Content>
     </Layout>
   );
