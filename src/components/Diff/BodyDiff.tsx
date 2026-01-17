@@ -58,7 +58,8 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
             label: (
               <span>
                 <CheckCircleOutlined className="text-green-500 mr-2" />
-                Body 内容完全一致
+                Body 内容
+                <Tag color="success" className="ml-2">完全一致</Tag>
                 <Text type="secondary" className="ml-2">
                   ({diff.webvpnSize} bytes
                   {diff.mimeType && <span> | {diff.mimeType}</span>})
@@ -87,7 +88,8 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
             label: (
               <span>
                 <WarningOutlined className="text-orange-500 mr-2" />
-                仅 WebVPN 有 Body 内容
+                Body 内容
+                <Tag color="warning" className="ml-2">仅 WebVPN 有</Tag>
                 <Text type="secondary" className="ml-2">
                   ({diff.webvpnSize} bytes)
                 </Text>
@@ -115,7 +117,8 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
             label: (
               <span>
                 <WarningOutlined className="text-orange-500 mr-2" />
-                仅源站有 Body 内容
+                Body 内容
+                <Tag color="warning" className="ml-2">仅源站有</Tag>
                 <Text type="secondary" className="ml-2">
                   ({diff.sourceSize} bytes)
                 </Text>
@@ -145,12 +148,14 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
               {diff.isIdenticalAfterNormalization ? (
                 <>
                   <CheckCircleOutlined className="text-green-500 mr-2" />
-                  Body 内容有差异（规范化后一致）
+                  Body 内容
+                  <Tag color="success" className="ml-2">规范化后一致</Tag>
                 </>
               ) : (
                 <>
                   <WarningOutlined className="text-orange-500 mr-2" />
-                  Body 内容有差异
+                  Body 内容
+                  <Tag color="warning" className="ml-2">有差异</Tag>
                 </>
               )}
               <Text type="secondary" className="ml-2">

@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import { Card, Tabs, Tag, Typography, Empty, Badge, Descriptions, Button } from 'antd';
+import { Card, Tag, Typography, Empty, Button, Space, Divider } from 'antd';
 import {
   CheckCircleOutlined,
-  WarningOutlined,
   CloseCircleOutlined,
   ExpandOutlined,
   ShrinkOutlined,
 } from '@ant-design/icons';
 import type { EntryCompareResult } from '../../types';
-import { HeaderDiffView } from '../Diff/HeaderDiff';
-import { CookieDiffView } from '../Diff/CookieDiff';
+import { HeaderTable } from '../Diff/HeaderTable';
 import { BodyDiffView } from '../Diff/BodyDiff';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 interface EntryDetailProps {
   entry: EntryCompareResult | null;
@@ -36,146 +34,6 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
     );
   }
 
-  const reqHeaderHasDiff =
-    entry.request.headerDiff.different.length > 0 ||
-    entry.request.headerDiff.missing.length > 0 ||
-    entry.request.headerDiff.extra.length > 0;
-
-  const reqCookieHasDiff =
-    entry.request.cookieDiff.different.length > 0 ||
-    entry.request.cookieDiff.missing.length > 0 ||
-    entry.request.cookieDiff.extra.length > 0;
-
-  const reqBodyHasDiff = entry.request.bodyDiff.status === 'different';
-
-  const respHeaderHasDiff =
-    entry.response.headerDiff.different.length > 0 ||
-    entry.response.headerDiff.missing.length > 0 ||
-    entry.response.headerDiff.extra.length > 0;
-
-  const respCookieHasDiff =
-    entry.response.cookieDiff.different.length > 0 ||
-    entry.response.cookieDiff.missing.length > 0 ||
-    entry.response.cookieDiff.extra.length > 0;
-
-  const respBodyHasDiff = entry.response.bodyDiff.status === 'different';
-
-  const tabItems = [
-    {
-      key: 'request',
-      label: (
-        <Badge dot={reqHeaderHasDiff || reqCookieHasDiff || reqBodyHasDiff} offset={[6, 0]}>
-          请求
-        </Badge>
-      ),
-      children: (
-        <Tabs
-          size="small"
-          items={[
-            {
-              key: 'req-headers',
-              label: (
-                <span>
-                  Headers
-                  {reqHeaderHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                </span>
-              ),
-              children: <HeaderDiffView key={`req-header-${collapseKey}`} diff={entry.request.headerDiff} />,
-            },
-            {
-              key: 'req-cookies',
-              label: (
-                <span>
-                  Cookies
-                  {reqCookieHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                </span>
-              ),
-              children: <CookieDiffView key={`req-cookie-${collapseKey}`} diff={entry.request.cookieDiff} />,
-            },
-            {
-              key: 'req-body',
-              label: (
-                <span>
-                  Body
-                  {reqBodyHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                </span>
-              ),
-              children: <BodyDiffView key={`req-body-${collapseKey}`} diff={entry.request.bodyDiff} defaultCollapsed={collapsed} />,
-            },
-          ]}
-        />
-      ),
-    },
-    {
-      key: 'response',
-      label: (
-        <Badge
-          dot={!entry.response.statusCode.isIdentical || respHeaderHasDiff || respCookieHasDiff || respBodyHasDiff}
-          offset={[6, 0]}
-        >
-          响应
-        </Badge>
-      ),
-      children: (
-        <>
-          {/* 状态码对比 */}
-          <div className="mb-4 p-3 bg-gray-50 rounded">
-            <Text strong>状态码: </Text>
-            {entry.response.statusCode.isIdentical ? (
-              <Tag color="success" icon={<CheckCircleOutlined />}>
-                {entry.response.statusCode.webvpn} (一致)
-              </Tag>
-            ) : (
-              <>
-                <Tag color="blue">WebVPN: {entry.response.statusCode.webvpn ?? 'N/A'}</Tag>
-                <Tag color="orange">源站: {entry.response.statusCode.source ?? 'N/A'}</Tag>
-                <Tag color="error" icon={<CloseCircleOutlined />}>
-                  不一致
-                </Tag>
-              </>
-            )}
-          </div>
-
-          <Tabs
-            size="small"
-            items={[
-              {
-                key: 'resp-headers',
-                label: (
-                  <span>
-                    Headers
-                    {respHeaderHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                  </span>
-                ),
-                children: <HeaderDiffView key={`resp-header-${collapseKey}`} diff={entry.response.headerDiff} />,
-              },
-              {
-                key: 'resp-cookies',
-                label: (
-                  <span>
-                    Set-Cookie
-                    {respCookieHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                  </span>
-                ),
-                children: <CookieDiffView key={`resp-cookie-${collapseKey}`} diff={entry.response.cookieDiff} />,
-              },
-              {
-                key: 'resp-body',
-                label: (
-                  <span>
-                    Body
-                    {respBodyHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
-                  </span>
-                ),
-                children: <BodyDiffView key={`resp-body-${collapseKey}`} diff={entry.response.bodyDiff} defaultCollapsed={collapsed} />,
-              },
-            ]}
-          />
-        </>
-      ),
-    },
-  ];
-
   return (
     <Card
       className="h-full overflow-auto"
@@ -191,30 +49,35 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
         </Button>
       }
     >
-      {/* 基本信息 */}
-      <div className="mb-4">
-        <Title level={5} className="mb-2">
-          {entry.method} {entry.url}
-        </Title>
-        <Descriptions size="small" column={1} bordered>
-          {entry.originalWebvpnUrl && (
-            <Descriptions.Item label="WebVPN URL">
-              <Text copyable className="text-xs break-all">
-                {entry.originalWebvpnUrl}
-              </Text>
-            </Descriptions.Item>
-          )}
-          {entry.originalSourceUrl && (
-            <Descriptions.Item label="源站 URL">
-              <Text copyable className="text-xs break-all">
-                {entry.originalSourceUrl}
-              </Text>
-            </Descriptions.Item>
-          )}
-        </Descriptions>
+      {/* 第一行：GET webvpn网址 */}
+      <div className="mb-2">
+        <Space>
+          <Tag color="blue">{entry.method}</Tag>
+          <Text strong>WebVPN:</Text>
+        </Space>
+        <div className="mt-1 ml-2">
+          <Text copyable className="text-xs break-all text-gray-600">
+            {entry.originalWebvpnUrl || entry.url}
+          </Text>
+        </div>
       </div>
 
-      {/* 详情标签页 */}
+      {/* 第二行：GET 源站网址 */}
+      <div className="mb-4">
+        <Space>
+          <Tag color="green">{entry.method}</Tag>
+          <Text strong>源站:</Text>
+        </Space>
+        <div className="mt-1 ml-2">
+          <Text copyable className="text-xs break-all text-gray-600">
+            {entry.originalSourceUrl || entry.url}
+          </Text>
+        </div>
+      </div>
+
+      <Divider className="my-4" />
+
+      {/* 只在 webvpn_only 或 source_only 时显示提示 */}
       {entry.status === 'webvpn_only' || entry.status === 'source_only' ? (
         <div className="text-center py-8">
           <Tag
@@ -225,7 +88,61 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
           </Tag>
         </div>
       ) : (
-        <Tabs items={tabItems} />
+        <Space direction="vertical" size="middle" className="w-full">
+          {/* 第三行：req headers 对比表格 */}
+          <HeaderTable
+            key={`req-header-${collapseKey}`}
+            diff={entry.request.headerDiff}
+            title="请求 Headers"
+            defaultCollapsed={collapsed}
+          />
+
+          {/* 第四行：req body 对比 */}
+          <div>
+            <BodyDiffView
+              key={`req-body-${collapseKey}`}
+              diff={entry.request.bodyDiff}
+              defaultCollapsed={collapsed}
+            />
+          </div>
+
+          <Divider className="my-2" />
+
+          {/* 响应状态码 */}
+          <div className="p-3 bg-gray-50 rounded">
+            <Text strong>响应状态码: </Text>
+            {entry.response.statusCode.isIdentical ? (
+              <Tag color="success" icon={<CheckCircleOutlined />}>
+                {entry.response.statusCode.webvpn} (一致)
+              </Tag>
+            ) : (
+              <>
+                <Tag color="blue">WebVPN: {entry.response.statusCode.webvpn ?? 'N/A'}</Tag>
+                <Tag color="orange">源站: {entry.response.statusCode.source ?? 'N/A'}</Tag>
+                <Tag color="error" icon={<CloseCircleOutlined />}>
+                  不一致
+                </Tag>
+              </>
+            )}
+          </div>
+
+          {/* 第五行：resp headers 对比表格 */}
+          <HeaderTable
+            key={`resp-header-${collapseKey}`}
+            diff={entry.response.headerDiff}
+            title="响应 Headers"
+            defaultCollapsed={collapsed}
+          />
+
+          {/* 第六行：resp body 对比 */}
+          <div>
+            <BodyDiffView
+              key={`resp-body-${collapseKey}`}
+              diff={entry.response.bodyDiff}
+              defaultCollapsed={collapsed}
+            />
+          </div>
+        </Space>
       )}
     </Card>
   );
