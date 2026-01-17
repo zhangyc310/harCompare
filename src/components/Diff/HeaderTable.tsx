@@ -167,7 +167,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     {
       title: 'WebVPN 值',
       dataIndex: 'webvpnValue',
-      width: isWebvpnOnly ? '60%' : isSourceOnly ? '40%' : undefined,
+      width: isWebvpnOnly ? 600 : isSourceOnly ? 400 : undefined,
       render: (value: string | undefined, record: HeaderRow) => {
         if (value === undefined) {
           return <Text type="secondary" italic>-</Text>;
@@ -189,7 +189,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     {
       title: '源站值',
       dataIndex: 'sourceValue',
-      width: isSourceOnly ? '60%' : isWebvpnOnly ? '40%' : undefined,
+      width: isSourceOnly ? 600 : isWebvpnOnly ? 400 : undefined,
       render: (value: string | undefined) => {
         if (value === undefined) {
           return <Text type="secondary" italic>-</Text>;
