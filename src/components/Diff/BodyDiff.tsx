@@ -205,11 +205,11 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
                       children: (
                         <div className="border rounded overflow-auto" style={{ maxHeight: 500 }}>
                           <ReactDiffViewer
-                            oldValue={sourceText}
-                            newValue={webvpnText}
+                            oldValue={webvpnText}
+                            newValue={sourceText}
                             splitView={viewMode === 'split'}
-                            leftTitle="源站"
-                            rightTitle="WebVPN"
+                            leftTitle="WebVPN"
+                            rightTitle="源站"
                             compareMethod={DiffMethod.WORDS}
                             styles={{
                               variables: {
@@ -236,11 +236,11 @@ export const BodyDiffView: React.FC<BodyDiffViewProps> = ({ diff, defaultCollaps
                       children: (
                         <div className="border rounded overflow-auto" style={{ maxHeight: 500 }}>
                           <ReactDiffViewer
-                            oldValue={sourceText}
-                            newValue={normalizedText}
+                            oldValue={normalizedText}
+                            newValue={sourceText}
                             splitView={viewMode === 'split'}
-                            leftTitle="源站"
-                            rightTitle="WebVPN (规范化后)"
+                            leftTitle="WebVPN (规范化后)"
+                            rightTitle="源站"
                             compareMethod={DiffMethod.WORDS}
                             styles={{
                               variables: {

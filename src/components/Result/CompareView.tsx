@@ -27,6 +27,42 @@ export const CompareView: React.FC<CompareViewProps> = ({ entries }) => {
     setCollapseKey((prev) => prev + 1);
   };
 
+  // 检测各部分是否有差异
+  const getDiffDetails = (entry: EntryCompareResult) => {
+    const details: string[] = [];
+
+    // 检查请求头差异
+    const reqHeaderDiff = entry.request.headerDiff;
+    if (reqHeaderDiff.different.length > 0 || reqHeaderDiff.missing.length > 0 || reqHeaderDiff.extra.length > 0) {
+      details.push('请求头');
+    }
+
+    // 检查请求Body差异
+    const reqBodyDiff = entry.request.bodyDiff;
+    if (reqBodyDiff.status !== 'identical' && reqBodyDiff.status !== 'both_empty') {
+      details.push('请求Body');
+    }
+
+    // 检查响应头差异
+    const respHeaderDiff = entry.response.headerDiff;
+    if (respHeaderDiff.different.length > 0 || respHeaderDiff.missing.length > 0 || respHeaderDiff.extra.length > 0) {
+      details.push('响应头');
+    }
+
+    // 检查响应Body差异
+    const respBodyDiff = entry.response.bodyDiff;
+    if (respBodyDiff.status !== 'identical' && respBodyDiff.status !== 'both_empty') {
+      details.push('响应Body');
+    }
+
+    // 检查响应状态码差异
+    if (!entry.response.statusCode.isIdentical) {
+      details.push('状态码');
+    }
+
+    return details;
+  };
+
   // 构建折叠面板项
   const collapseItems = entries.map((entry) => {
     const hasDiff = entry.status === 'different';
@@ -37,11 +73,23 @@ export const CompareView: React.FC<CompareViewProps> = ({ entries }) => {
     let statusIcon = <CheckCircleOutlined className="text-green-500" />;
     let statusText = '一致';
     let statusColor = 'success';
+    let diffTags: React.ReactNode = null;
 
     if (hasDiff) {
       statusIcon = <WarningOutlined className="text-orange-500" />;
-      statusText = '有差异';
+      const diffDetails = getDiffDetails(entry);
+      statusText = diffDetails.length > 0 ? diffDetails.join('、') : '有差异';
       statusColor = 'warning';
+      // 创建差异标签
+      diffTags = (
+        <Space size={4}>
+          {diffDetails.map((detail) => (
+            <Tag key={detail} color="warning" style={{ margin: 0 }}>
+              {detail}
+            </Tag>
+          ))}
+        </Space>
+      );
     } else if (isWebvpnOnly) {
       statusIcon = <QuestionCircleOutlined className="text-blue-500" />;
       statusText = '仅WebVPN';
@@ -63,7 +111,7 @@ export const CompareView: React.FC<CompareViewProps> = ({ entries }) => {
               {entry.url}
             </Text>
           </Space>
-          <Tag color={statusColor}>{statusText}</Tag>
+          {diffTags || <Tag color={statusColor}>{statusText}</Tag>}
         </div>
       ),
       children: <EntryDetailContent entry={entry} collapseKey={collapseKey} collapsed={collapsed} />,
