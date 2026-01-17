@@ -1,9 +1,11 @@
-import React from 'react';
-import { Card, Tabs, Tag, Typography, Empty, Badge, Descriptions } from 'antd';
+import React, { useState } from 'react';
+import { Card, Tabs, Tag, Typography, Empty, Badge, Descriptions, Button } from 'antd';
 import {
   CheckCircleOutlined,
   WarningOutlined,
   CloseCircleOutlined,
+  ExpandOutlined,
+  ShrinkOutlined,
 } from '@ant-design/icons';
 import type { EntryCompareResult } from '../../types';
 import { HeaderDiffView } from '../Diff/HeaderDiff';
@@ -17,6 +19,15 @@ interface EntryDetailProps {
 }
 
 export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
+  const [collapsed, setCollapsed] = useState(true); // 默认折叠
+  const [collapseKey, setCollapseKey] = useState(0); // 用于强制重新渲染
+
+  // 切换展开/折叠
+  const toggleCollapse = () => {
+    setCollapsed(!collapsed);
+    setCollapseKey((prev) => prev + 1); // 改变key强制重新渲染所有组件
+  };
+
   if (!entry) {
     return (
       <Card className="h-full">
@@ -69,7 +80,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                   {reqHeaderHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                 </span>
               ),
-              children: <HeaderDiffView diff={entry.request.headerDiff} />,
+              children: <HeaderDiffView key={`req-header-${collapseKey}`} diff={entry.request.headerDiff} />,
             },
             {
               key: 'req-cookies',
@@ -79,7 +90,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                   {reqCookieHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                 </span>
               ),
-              children: <CookieDiffView diff={entry.request.cookieDiff} />,
+              children: <CookieDiffView key={`req-cookie-${collapseKey}`} diff={entry.request.cookieDiff} />,
             },
             {
               key: 'req-body',
@@ -89,7 +100,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                   {reqBodyHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                 </span>
               ),
-              children: <BodyDiffView diff={entry.request.bodyDiff} />,
+              children: <BodyDiffView key={`req-body-${collapseKey}`} diff={entry.request.bodyDiff} defaultCollapsed={collapsed} />,
             },
           ]}
         />
@@ -136,7 +147,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                     {respHeaderHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                   </span>
                 ),
-                children: <HeaderDiffView diff={entry.response.headerDiff} />,
+                children: <HeaderDiffView key={`resp-header-${collapseKey}`} diff={entry.response.headerDiff} />,
               },
               {
                 key: 'resp-cookies',
@@ -146,7 +157,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                     {respCookieHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                   </span>
                 ),
-                children: <CookieDiffView diff={entry.response.cookieDiff} />,
+                children: <CookieDiffView key={`resp-cookie-${collapseKey}`} diff={entry.response.cookieDiff} />,
               },
               {
                 key: 'resp-body',
@@ -156,7 +167,7 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
                     {respBodyHasDiff && <WarningOutlined className="ml-1 text-orange-500" />}
                   </span>
                 ),
-                children: <BodyDiffView diff={entry.response.bodyDiff} />,
+                children: <BodyDiffView key={`resp-body-${collapseKey}`} diff={entry.response.bodyDiff} defaultCollapsed={collapsed} />,
               },
             ]}
           />
@@ -166,7 +177,20 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
   ];
 
   return (
-    <Card className="h-full overflow-auto" size="small">
+    <Card
+      className="h-full overflow-auto"
+      size="small"
+      extra={
+        <Button
+          type="text"
+          size="small"
+          icon={collapsed ? <ExpandOutlined /> : <ShrinkOutlined />}
+          onClick={toggleCollapse}
+        >
+          {collapsed ? '全部展开' : '全部折叠'}
+        </Button>
+      }
+    >
       {/* 基本信息 */}
       <div className="mb-4">
         <Title level={5} className="mb-2">
