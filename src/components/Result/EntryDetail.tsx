@@ -39,15 +39,9 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
       sourceValue: entry.method,
     },
     {
-      key: 'url-webvpn',
-      name: 'WebVPN URL',
+      key: 'url',
+      name: 'URL',
       webvpnValue: entry.originalWebvpnUrl || entry.url,
-      sourceValue: undefined,
-    },
-    {
-      key: 'url-source',
-      name: '源站 URL',
-      webvpnValue: undefined,
       sourceValue: entry.originalSourceUrl || entry.url,
     },
   ];
