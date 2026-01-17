@@ -18,10 +18,12 @@ import type {
 } from '../types';
 import { Normalizer } from './Normalizer';
 import { EntryMatcher } from './EntryMatcher';
+import { BodyFormatter } from './BodyFormatter';
 
 export class Comparator {
   private normalizer: Normalizer;
   private matcher: EntryMatcher;
+  private bodyFormatter: BodyFormatter;
 
   // URL 相关的 header，需要规范化后再比较
   private readonly urlHeaders = new Set([
@@ -36,6 +38,7 @@ export class Comparator {
   constructor(mappingConfig: MappingConfig) {
     this.normalizer = new Normalizer(mappingConfig);
     this.matcher = new EntryMatcher(this.normalizer);
+    this.bodyFormatter = new BodyFormatter();
   }
 
   /**
@@ -384,10 +387,7 @@ export class Comparator {
       };
     }
 
-    // 规范化 webvpn body
-    const normalizedWebvpnBody = this.normalizer.normalizeText(webvpnBody);
-    const isIdenticalAfterNormalization = normalizedWebvpnBody === sourceBody;
-
+    // 1. 原始值直接对比
     if (webvpnBody === sourceBody) {
       return {
         status: 'identical',
@@ -397,12 +397,42 @@ export class Comparator {
       };
     }
 
+    // 2. 格式化后对比（针对结构化数据）
+    let formattedWebvpnBody = webvpnBody;
+    let formattedSourceBody = sourceBody;
+    let isIdenticalAfterFormatting = false;
+
+    try {
+      // 格式化（会对 JSON/XML/URL-encoded 等进行规范化）
+      formattedWebvpnBody = this.bodyFormatter.format(webvpnBody, mimeType);
+      formattedSourceBody = this.bodyFormatter.format(sourceBody, mimeType);
+
+      // 对于 JSON，使用深度对比（忽略字段顺序）
+      if (mimeType?.includes('json')) {
+        isIdenticalAfterFormatting = this.bodyFormatter.isJsonEqual(webvpnBody, sourceBody);
+      } else {
+        // 其他格式使用格式化后的字符串对比
+        isIdenticalAfterFormatting = formattedWebvpnBody === formattedSourceBody;
+      }
+    } catch {
+      // 格式化失败，保持原始值
+      formattedWebvpnBody = webvpnBody;
+      formattedSourceBody = sourceBody;
+    }
+
+    // 3. 规范化 webvpn body（URL替换等）
+    const normalizedWebvpnBody = this.normalizer.normalizeText(webvpnBody);
+    const isIdenticalAfterNormalization = normalizedWebvpnBody === sourceBody;
+
+    // 4. 检查规范化后是否相同（考虑格式化和URL规范化）
+    const finalIsIdentical = isIdenticalAfterFormatting || isIdenticalAfterNormalization;
+
     return {
       status: 'different',
       mimeType,
       webvpnSize,
       sourceSize,
-      isIdenticalAfterNormalization,
+      isIdenticalAfterNormalization: finalIsIdentical,
       webvpnText: webvpnBody,
       sourceText: sourceBody,
       normalizedWebvpnText: normalizedWebvpnBody,
