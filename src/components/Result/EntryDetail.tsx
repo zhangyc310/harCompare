@@ -9,6 +9,7 @@ import type { EntryCompareResult } from '../../types';
 import { HeaderDiffView } from '../Diff/HeaderDiff';
 import { CookieDiffView } from '../Diff/CookieDiff';
 import { BodyDiffView } from '../Diff/BodyDiff';
+import { UrlDiff } from '../Diff/UrlDiff';
 
 const { Text, Title } = Typography;
 
@@ -172,22 +173,34 @@ export const EntryDetail: React.FC<EntryDetailProps> = ({ entry }) => {
         <Title level={5} className="mb-2">
           {entry.method} {entry.url}
         </Title>
-        <Descriptions size="small" column={1} bordered>
-          {entry.originalWebvpnUrl && (
-            <Descriptions.Item label="WebVPN URL">
-              <Text copyable className="text-xs break-all">
-                {entry.originalWebvpnUrl}
-              </Text>
-            </Descriptions.Item>
-          )}
-          {entry.originalSourceUrl && (
-            <Descriptions.Item label="源站 URL">
-              <Text copyable className="text-xs break-all">
-                {entry.originalSourceUrl}
-              </Text>
-            </Descriptions.Item>
-          )}
-        </Descriptions>
+
+        {/* URL 参数对比 */}
+        {entry.originalWebvpnUrl && entry.originalSourceUrl ? (
+          <div className="p-4 bg-gray-50 rounded border">
+            <UrlDiff
+              webvpnUrl={entry.originalWebvpnUrl}
+              sourceUrl={entry.originalSourceUrl}
+              label="URL 参数对比"
+            />
+          </div>
+        ) : (
+          <Descriptions size="small" column={1} bordered>
+            {entry.originalWebvpnUrl && (
+              <Descriptions.Item label="WebVPN URL">
+                <Text copyable className="text-xs break-all">
+                  {entry.originalWebvpnUrl}
+                </Text>
+              </Descriptions.Item>
+            )}
+            {entry.originalSourceUrl && (
+              <Descriptions.Item label="源站 URL">
+                <Text copyable className="text-xs break-all">
+                  {entry.originalSourceUrl}
+                </Text>
+              </Descriptions.Item>
+            )}
+          </Descriptions>
+        )}
       </div>
 
       {/* 详情标签页 */}
