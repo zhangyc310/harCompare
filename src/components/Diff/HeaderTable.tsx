@@ -137,6 +137,12 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     );
   }
 
+  // 检测是否是单侧显示（webvpn_only 或 source_only）
+  const hasWebvpnValues = tableData.some(row => row.webvpnValue !== undefined);
+  const hasSourceValues = tableData.some(row => row.sourceValue !== undefined);
+  const isWebvpnOnly = hasWebvpnValues && !hasSourceValues;
+  const isSourceOnly = !hasWebvpnValues && hasSourceValues;
+
   const columns = [
     {
       title: '名称',
@@ -161,6 +167,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     {
       title: 'WebVPN 值',
       dataIndex: 'webvpnValue',
+      width: isWebvpnOnly ? '60%' : isSourceOnly ? '40%' : undefined,
       render: (value: string | undefined, record: HeaderRow) => {
         if (value === undefined) {
           return <Text type="secondary" italic>-</Text>;
@@ -182,6 +189,7 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     {
       title: '源站值',
       dataIndex: 'sourceValue',
+      width: isSourceOnly ? '60%' : isWebvpnOnly ? '40%' : undefined,
       render: (value: string | undefined) => {
         if (value === undefined) {
           return <Text type="secondary" italic>-</Text>;
