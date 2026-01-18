@@ -31,9 +31,26 @@ export const CompareView: React.FC<CompareViewProps> = ({ entries }) => {
   const getDiffDetails = (entry: EntryCompareResult) => {
     const details: string[] = [];
 
-    // 检查请求头差异
+    // 辅助函数：检查 cookie header 是否有差异
+    const hasCookieHeaderDiff = (diff: typeof entry.request.headerDiff) => {
+      if (diff.cookieHeaderDiff) {
+        const cd = diff.cookieHeaderDiff;
+        if (cd.different.length > 0 || cd.missing.length > 0 || cd.extra.length > 0) {
+          return true;
+        }
+      }
+      if (diff.setCookieHeaderDiff) {
+        const scd = diff.setCookieHeaderDiff;
+        if (scd.different.length > 0 || scd.missing.length > 0 || scd.extra.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    // 检查请求头差异（包括 cookie header）
     const reqHeaderDiff = entry.request.headerDiff;
-    if (reqHeaderDiff.different.length > 0 || reqHeaderDiff.missing.length > 0 || reqHeaderDiff.extra.length > 0) {
+    if (reqHeaderDiff.different.length > 0 || reqHeaderDiff.missing.length > 0 || reqHeaderDiff.extra.length > 0 || hasCookieHeaderDiff(reqHeaderDiff)) {
       details.push('请求头');
     }
 
@@ -43,9 +60,9 @@ export const CompareView: React.FC<CompareViewProps> = ({ entries }) => {
       details.push('请求Body');
     }
 
-    // 检查响应头差异
+    // 检查响应头差异（包括 set-cookie header）
     const respHeaderDiff = entry.response.headerDiff;
-    if (respHeaderDiff.different.length > 0 || respHeaderDiff.missing.length > 0 || respHeaderDiff.extra.length > 0) {
+    if (respHeaderDiff.different.length > 0 || respHeaderDiff.missing.length > 0 || respHeaderDiff.extra.length > 0 || hasCookieHeaderDiff(respHeaderDiff)) {
       details.push('响应头');
     }
 

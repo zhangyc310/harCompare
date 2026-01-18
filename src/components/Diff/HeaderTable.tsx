@@ -6,7 +6,7 @@ import {
   MinusCircleOutlined,
   PlusCircleOutlined,
 } from '@ant-design/icons';
-import type { HeaderDiff } from '../../types';
+import type { HeaderDiff, CookieHeaderDiff } from '../../types';
 
 const { Text } = Typography;
 
@@ -143,6 +143,168 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
   const isWebvpnOnly = hasWebvpnValues && !hasSourceValues;
   const isSourceOnly = !hasWebvpnValues && hasSourceValues;
 
+  // 渲染 Cookie Header 对比子表格
+  const renderCookieHeaderTable = (cookieDiff: CookieHeaderDiff, headerName: string) => {
+    const hasCookieDiff = cookieDiff.different.length > 0 || cookieDiff.missing.length > 0 || cookieDiff.extra.length > 0;
+    const totalCount = cookieDiff.matched.length + cookieDiff.different.length + cookieDiff.missing.length + cookieDiff.extra.length;
+
+    if (totalCount === 0) return null;
+
+    // 构建 cookie 表格数据
+    interface CookieRow {
+      key: string;
+      name: string;
+      webvpnName?: string;
+      sourceName?: string;
+      webvpnValue?: string;
+      sourceValue?: string;
+      status: 'matched' | 'different' | 'missing' | 'extra';
+    }
+
+    const cookieTableData: CookieRow[] = [];
+
+    // 值不同的
+    cookieDiff.different.forEach((item, idx) => {
+      cookieTableData.push({
+        key: `diff-${idx}`,
+        name: item.normalizedName,
+        webvpnName: item.webvpnName,
+        sourceName: item.sourceName,
+        webvpnValue: item.webvpnValue,
+        sourceValue: item.sourceValue,
+        status: 'different',
+      });
+    });
+
+    // WebVPN 缺失的
+    cookieDiff.missing.forEach((item, idx) => {
+      cookieTableData.push({
+        key: `missing-${idx}`,
+        name: item.normalizedName,
+        webvpnName: undefined,
+        sourceName: item.name,
+        webvpnValue: undefined,
+        sourceValue: item.value,
+        status: 'missing',
+      });
+    });
+
+    // WebVPN 多出的
+    cookieDiff.extra.forEach((item, idx) => {
+      cookieTableData.push({
+        key: `extra-${idx}`,
+        name: item.normalizedName,
+        webvpnName: item.name,
+        sourceName: undefined,
+        webvpnValue: item.value,
+        sourceValue: undefined,
+        status: 'extra',
+      });
+    });
+
+    // 一致的
+    cookieDiff.matched.forEach((item, idx) => {
+      cookieTableData.push({
+        key: `matched-${idx}`,
+        name: item.normalizedName,
+        webvpnName: item.webvpnName,
+        sourceName: item.sourceName,
+        webvpnValue: item.webvpnValue,
+        sourceValue: item.sourceValue,
+        status: 'matched',
+      });
+    });
+
+    const cookieColumns = [
+      {
+        title: 'Cookie 名称',
+        dataIndex: 'name',
+        width: 180,
+        render: (name: string, record: CookieRow) => (
+          <div className="flex items-center gap-2">
+            {record.status === 'matched' && <CheckCircleOutlined className="text-green-500" />}
+            {record.status === 'different' && <WarningOutlined className="text-orange-500" />}
+            {record.status === 'missing' && <MinusCircleOutlined className="text-red-500" />}
+            {record.status === 'extra' && <PlusCircleOutlined className="text-blue-500" />}
+            <div>
+              <Text code>{name}</Text>
+              {record.webvpnName && record.webvpnName !== name && (
+                <div className="text-xs text-gray-400 mt-1">
+                  WebVPN: {record.webvpnName}
+                </div>
+              )}
+            </div>
+          </div>
+        ),
+      },
+      {
+        title: 'WebVPN 值',
+        dataIndex: 'webvpnValue',
+        render: (value: string | undefined) => {
+          if (value === undefined) {
+            return <Text type="secondary" italic>-</Text>;
+          }
+          return (
+            <Text className="break-all text-xs">
+              {value.length > 80 ? value.substring(0, 80) + '...' : value}
+            </Text>
+          );
+        },
+      },
+      {
+        title: '源站值',
+        dataIndex: 'sourceValue',
+        render: (value: string | undefined) => {
+          if (value === undefined) {
+            return <Text type="secondary" italic>-</Text>;
+          }
+          return (
+            <Text className="break-all text-xs">
+              {value.length > 80 ? value.substring(0, 80) + '...' : value}
+            </Text>
+          );
+        },
+      },
+    ];
+
+    return {
+      key: headerName,
+      label: (
+        <span>
+          {hasCookieDiff ? (
+            <>
+              <WarningOutlined className="text-orange-500 mr-2" />
+              <Text code>{headerName}</Text>
+              <Tag color="warning" className="ml-2">
+                {cookieDiff.different.length + cookieDiff.missing.length + cookieDiff.extra.length} 处差异
+              </Tag>
+            </>
+          ) : (
+            <>
+              <CheckCircleOutlined className="text-green-500 mr-2" />
+              <Text code>{headerName}</Text>
+              <Tag color="success" className="ml-2">{totalCount} 个一致</Tag>
+            </>
+          )}
+        </span>
+      ),
+      children: (
+        <Table
+          dataSource={cookieTableData}
+          columns={cookieColumns}
+          size="small"
+          pagination={false}
+          rowClassName={(record) => {
+            if (record.status === 'different') return 'bg-orange-50';
+            if (record.status === 'missing') return 'bg-red-50';
+            if (record.status === 'extra') return 'bg-blue-50';
+            return '';
+          }}
+        />
+      ),
+    };
+  };
+
   const columns = [
     {
       title: '名称',
@@ -199,20 +361,117 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
     },
   ];
 
+  // 计算 cookie header 的差异数量
+  const cookieHeaderDiffCount = diff.cookieHeaderDiff
+    ? diff.cookieHeaderDiff.different.length + diff.cookieHeaderDiff.missing.length + diff.cookieHeaderDiff.extra.length
+    : 0;
+  const setCookieHeaderDiffCount = diff.setCookieHeaderDiff
+    ? diff.setCookieHeaderDiff.different.length + diff.setCookieHeaderDiff.missing.length + diff.setCookieHeaderDiff.extra.length
+    : 0;
+
+  // 总差异数（包含 cookie header）
+  const totalDiffCount = diff.different.length + diff.missing.length + diff.extra.length + cookieHeaderDiffCount + setCookieHeaderDiffCount;
+  const hasAnyDifferences = totalDiffCount > 0;
+
+  // 构建 collapse items
+  const collapseItems: Array<{
+    key: string;
+    label: React.ReactNode;
+    children: React.ReactNode;
+  }> = [];
+
+  // 普通 headers 表格（如果有数据）
+  if (tableData.length > 0) {
+    collapseItems.push({
+      key: 'headers',
+      label: (
+        <span>
+          {hasDifferences ? (
+            <>
+              <WarningOutlined className="text-orange-500 mr-2" />
+              Headers
+              <Tag color="warning" className="ml-2">
+                {diff.different.length + diff.missing.length + diff.extra.length} 处差异
+              </Tag>
+            </>
+          ) : (
+            <>
+              <CheckCircleOutlined className="text-green-500 mr-2" />
+              Headers
+              <Tag color="success" className="ml-2">全部一致</Tag>
+            </>
+          )}
+        </span>
+      ),
+      children: (
+        <Table
+          dataSource={tableData}
+          columns={columns}
+          size="small"
+          pagination={false}
+          rowClassName={(record) => {
+            if (record.status === 'different') return 'bg-orange-50';
+            if (record.status === 'missing') return 'bg-red-50';
+            if (record.status === 'extra') return 'bg-blue-50';
+            return '';
+          }}
+        />
+      ),
+    });
+  }
+
+  // Cookie header 子表格
+  if (diff.cookieHeaderDiff) {
+    const cookieItem = renderCookieHeaderTable(diff.cookieHeaderDiff, 'Cookie');
+    if (cookieItem) {
+      collapseItems.push(cookieItem);
+    }
+  }
+
+  // Set-Cookie header 子表格
+  if (diff.setCookieHeaderDiff) {
+    const setCookieItem = renderCookieHeaderTable(diff.setCookieHeaderDiff, 'Set-Cookie');
+    if (setCookieItem) {
+      collapseItems.push(setCookieItem);
+    }
+  }
+
+  // 如果没有任何数据，显示空状态
+  if (collapseItems.length === 0) {
+    return (
+      <Collapse
+        size="small"
+        items={[
+          {
+            key: 'empty',
+            label: (
+              <span>
+                <CheckCircleOutlined className="text-gray-400 mr-2" />
+                {title}
+              </span>
+            ),
+            children: <Empty description="无 Header 数据" />,
+          },
+        ]}
+        defaultActiveKey={[]}
+      />
+    );
+  }
+
   return (
     <Collapse
       size="small"
       items={[
         {
-          key: 'headers',
+          key: 'main',
           label: (
             <span>
-              {hasDifferences ? (
+              {hasAnyDifferences ? (
                 <>
                   <WarningOutlined className="text-orange-500 mr-2" />
                   {title}
                   <Tag color="warning" className="ml-2">
-                    {diff.different.length + diff.missing.length + diff.extra.length} 处差异
+                    {totalDiffCount} 处差异
                   </Tag>
                 </>
               ) : (
@@ -225,22 +484,15 @@ export const HeaderTable: React.FC<HeaderTableProps> = ({
             </span>
           ),
           children: (
-            <Table
-              dataSource={tableData}
-              columns={columns}
+            <Collapse
               size="small"
-              pagination={false}
-              rowClassName={(record) => {
-                if (record.status === 'different') return 'bg-orange-50';
-                if (record.status === 'missing') return 'bg-red-50';
-                if (record.status === 'extra') return 'bg-blue-50';
-                return '';
-              }}
+              items={collapseItems}
+              defaultActiveKey={defaultCollapsed ? [] : collapseItems.map(item => item.key)}
             />
           ),
         },
       ]}
-      defaultActiveKey={defaultCollapsed ? [] : ['headers']}
+      defaultActiveKey={defaultCollapsed ? [] : ['main']}
     />
   );
 };

@@ -7,12 +7,42 @@ import type { HarEntry, HarHeader, HarCookie } from './har';
 // 差异状态
 export type DiffStatus = 'identical' | 'different' | 'webvpn_only' | 'source_only';
 
+// 解析后的 Cookie 项（用于 cookie/set-cookie header 解析）
+export interface ParsedCookieItem {
+  name: string;
+  value: string;
+  normalizedName: string;  // 规范化后的名称
+}
+
+// Cookie Header 的对比结果
+export interface CookieHeaderDiff {
+  matched: Array<{
+    normalizedName: string;
+    webvpnName: string;
+    sourceName: string;
+    webvpnValue: string;
+    sourceValue: string;
+  }>;
+  missing: ParsedCookieItem[];    // WebVPN 缺失的
+  extra: ParsedCookieItem[];      // WebVPN 多出的
+  different: Array<{
+    normalizedName: string;
+    webvpnName: string;
+    sourceName: string;
+    webvpnValue: string;
+    sourceValue: string;
+  }>;
+}
+
 // Header 差异
 export interface HeaderDiff {
   matched: HarHeader[];           // 完全一致的 header
   missing: HarHeader[];           // WebVPN 缺失的 (源站有)
   extra: HarHeader[];             // WebVPN 多出的 (源站没有)
   different: HeaderDiffItem[];    // 值不同的 header
+  // Cookie 相关 header 的解析对比结果
+  cookieHeaderDiff?: CookieHeaderDiff;     // Cookie header 的对比结果
+  setCookieHeaderDiff?: CookieHeaderDiff;  // Set-Cookie header 的对比结果
 }
 
 export interface HeaderDiffItem {

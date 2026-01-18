@@ -15,6 +15,8 @@ import type {
   HeaderDiff,
   CookieDiff,
   BodyDiff,
+  CookieHeaderDiff,
+  ParsedCookieItem,
 } from '../types';
 import { Normalizer } from './Normalizer';
 import { EntryMatcher } from './EntryMatcher';
@@ -116,12 +118,30 @@ export class Comparator {
 
     const statusIdentical = webvpnEntry.response.status === sourceEntry.response.status;
 
+    // 辅助函数：检查 cookie header 是否有差异
+    const hasCookieHeaderDiff = (diff: HeaderDiff) => {
+      if (diff.cookieHeaderDiff) {
+        const cd = diff.cookieHeaderDiff;
+        if (cd.different.length > 0 || cd.missing.length > 0 || cd.extra.length > 0) {
+          return true;
+        }
+      }
+      if (diff.setCookieHeaderDiff) {
+        const scd = diff.setCookieHeaderDiff;
+        if (scd.different.length > 0 || scd.missing.length > 0 || scd.extra.length > 0) {
+          return true;
+        }
+      }
+      return false;
+    };
+
     // 判断整体状态
     const hasDifferences =
       !statusIdentical ||
       requestHeaderDiff.different.length > 0 ||
       requestHeaderDiff.missing.length > 0 ||
       requestHeaderDiff.extra.length > 0 ||
+      hasCookieHeaderDiff(requestHeaderDiff) ||
       requestCookieDiff.different.length > 0 ||
       requestCookieDiff.missing.length > 0 ||
       requestCookieDiff.extra.length > 0 ||
@@ -129,6 +149,7 @@ export class Comparator {
       responseHeaderDiff.different.length > 0 ||
       responseHeaderDiff.missing.length > 0 ||
       responseHeaderDiff.extra.length > 0 ||
+      hasCookieHeaderDiff(responseHeaderDiff) ||
       responseCookieDiff.different.length > 0 ||
       responseCookieDiff.missing.length > 0 ||
       responseCookieDiff.extra.length > 0 ||
@@ -209,6 +230,119 @@ export class Comparator {
   }
 
   /**
+   * 解析 Cookie header 值为 cookie 项数组
+   * Cookie: name1=value1; name2=value2
+   */
+  private parseCookieHeader(headerValue: string): ParsedCookieItem[] {
+    if (!headerValue) return [];
+
+    const cookies: ParsedCookieItem[] = [];
+    const pairs = headerValue.split(';');
+
+    for (const pair of pairs) {
+      const trimmed = pair.trim();
+      if (!trimmed) continue;
+
+      const eqIndex = trimmed.indexOf('=');
+      if (eqIndex === -1) continue;
+
+      const name = trimmed.substring(0, eqIndex).trim();
+      const value = trimmed.substring(eqIndex + 1).trim();
+      const normalizedName = this.normalizer.normalizeCookieName(name).toLowerCase();
+
+      cookies.push({ name, value, normalizedName });
+    }
+
+    return cookies;
+  }
+
+  /**
+   * 解析 Set-Cookie header 值
+   * Set-Cookie: name=value; Path=/; HttpOnly
+   * 只提取 name=value 部分
+   */
+  private parseSetCookieHeader(headerValue: string): ParsedCookieItem | null {
+    if (!headerValue) return null;
+
+    // Set-Cookie 格式: name=value; attributes...
+    const semicolonIndex = headerValue.indexOf(';');
+    const cookiePart = semicolonIndex === -1 ? headerValue : headerValue.substring(0, semicolonIndex);
+
+    const eqIndex = cookiePart.indexOf('=');
+    if (eqIndex === -1) return null;
+
+    const name = cookiePart.substring(0, eqIndex).trim();
+    const value = cookiePart.substring(eqIndex + 1).trim();
+    const normalizedName = this.normalizer.normalizeCookieName(name).toLowerCase();
+
+    return { name, value, normalizedName };
+  }
+
+  /**
+   * 对比 Cookie header 的内容
+   */
+  private compareCookieHeaderValues(
+    webvpnCookies: ParsedCookieItem[],
+    sourceCookies: ParsedCookieItem[]
+  ): CookieHeaderDiff {
+    const result: CookieHeaderDiff = {
+      matched: [],
+      missing: [],
+      extra: [],
+      different: [],
+    };
+
+    // 构建源站 cookie map（按规范化名称）
+    const sourceMap = new Map<string, ParsedCookieItem>();
+    for (const c of sourceCookies) {
+      sourceMap.set(c.normalizedName, c);
+    }
+
+    // 构建 webvpn cookie map（按规范化名称）
+    const webvpnMap = new Map<string, ParsedCookieItem>();
+    for (const c of webvpnCookies) {
+      webvpnMap.set(c.normalizedName, c);
+    }
+
+    // 对比 webvpn cookies
+    for (const [normalizedName, webvpnCookie] of webvpnMap) {
+      const sourceCookie = sourceMap.get(normalizedName);
+
+      if (!sourceCookie) {
+        result.extra.push(webvpnCookie);
+        continue;
+      }
+
+      if (webvpnCookie.value === sourceCookie.value) {
+        result.matched.push({
+          normalizedName,
+          webvpnName: webvpnCookie.name,
+          sourceName: sourceCookie.name,
+          webvpnValue: webvpnCookie.value,
+          sourceValue: sourceCookie.value,
+        });
+      } else {
+        result.different.push({
+          normalizedName,
+          webvpnName: webvpnCookie.name,
+          sourceName: sourceCookie.name,
+          webvpnValue: webvpnCookie.value,
+          sourceValue: sourceCookie.value,
+        });
+      }
+    }
+
+    // 找出源站有但 webvpn 没有的
+    for (const [normalizedName, sourceCookie] of sourceMap) {
+      if (!webvpnMap.has(normalizedName)) {
+        result.missing.push(sourceCookie);
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * 对比 headers
    */
   private compareHeaders(webvpnHeaders: HarHeader[], sourceHeaders: HarHeader[]): HeaderDiff {
@@ -228,11 +362,23 @@ export class Comparator {
       'x-amz-request-id',
     ]);
 
+    // 收集 cookie 和 set-cookie header 的值
+    const webvpnCookieHeaders: string[] = [];
+    const sourceCookieHeaders: string[] = [];
+    const webvpnSetCookieHeaders: string[] = [];
+    const sourceSetCookieHeaders: string[] = [];
+
     // 构建源站 header map
     const sourceMap = new Map<string, HarHeader>();
     for (const h of sourceHeaders) {
       const name = h.name.toLowerCase();
-      if (!ignoredHeaders.has(name)) {
+      if (ignoredHeaders.has(name)) continue;
+
+      if (name === 'cookie') {
+        sourceCookieHeaders.push(h.value);
+      } else if (name === 'set-cookie') {
+        sourceSetCookieHeaders.push(h.value);
+      } else {
         sourceMap.set(name, h);
       }
     }
@@ -241,12 +387,18 @@ export class Comparator {
     const webvpnMap = new Map<string, HarHeader>();
     for (const h of webvpnHeaders) {
       const name = h.name.toLowerCase();
-      if (!ignoredHeaders.has(name)) {
+      if (ignoredHeaders.has(name)) continue;
+
+      if (name === 'cookie') {
+        webvpnCookieHeaders.push(h.value);
+      } else if (name === 'set-cookie') {
+        webvpnSetCookieHeaders.push(h.value);
+      } else {
         webvpnMap.set(name, h);
       }
     }
 
-    // 对比 webvpn headers
+    // 对比普通 headers
     for (const [name, webvpnHeader] of webvpnMap) {
       const sourceHeader = sourceMap.get(name);
 
@@ -273,11 +425,29 @@ export class Comparator {
       }
     }
 
-    // 找出源站有但 webvpn 没有的
+    // 找出源站有但 webvpn 没有的普通 header
     for (const [name, sourceHeader] of sourceMap) {
       if (!webvpnMap.has(name)) {
         result.missing.push(sourceHeader);
       }
+    }
+
+    // 处理 Cookie header
+    if (webvpnCookieHeaders.length > 0 || sourceCookieHeaders.length > 0) {
+      const webvpnCookies = webvpnCookieHeaders.flatMap(h => this.parseCookieHeader(h));
+      const sourceCookies = sourceCookieHeaders.flatMap(h => this.parseCookieHeader(h));
+      result.cookieHeaderDiff = this.compareCookieHeaderValues(webvpnCookies, sourceCookies);
+    }
+
+    // 处理 Set-Cookie header
+    if (webvpnSetCookieHeaders.length > 0 || sourceSetCookieHeaders.length > 0) {
+      const webvpnSetCookies = webvpnSetCookieHeaders
+        .map(h => this.parseSetCookieHeader(h))
+        .filter((c): c is ParsedCookieItem => c !== null);
+      const sourceSetCookies = sourceSetCookieHeaders
+        .map(h => this.parseSetCookieHeader(h))
+        .filter((c): c is ParsedCookieItem => c !== null);
+      result.setCookieHeaderDiff = this.compareCookieHeaderValues(webvpnSetCookies, sourceSetCookies);
     }
 
     return result;
